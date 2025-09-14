@@ -216,10 +216,5 @@ export OPENAI_API_KEY=your_api_key_here
 app.run(host='0.0.0.0', port=8080, debug=False)
 ```
 
-## Лицензия
-
-MIT
-
----
 
 Для быстрого старта после установки зависимостей просто запустите `python working_web_app.py`
