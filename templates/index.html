@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR 2.0 - Веб-интерфейс</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .drop-zone {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 60px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #0d6efd;
+            background-color: #f8f9ff;
+        }
+        .result-section {
+            display: none;
+            margin-top: 30px;
+        }
+        .engine-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+        .engine-card:hover {
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .progress-section {
+            display: none;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .comparison-mode {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .json-viewer {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-eye"></i> OCR 2.0
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="#" onclick="showApiDocs()">
+                    <i class="bi bi-code-slash"></i> API
+                </a>
+                <a class="nav-link" href="#" onclick="showHealth()">
+                    <i class="bi bi-heart-pulse"></i> Статус
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Заголовок -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="text-center">
+                    <h1 class="display-6 mb-3">
+                        <i class="bi bi-file-text"></i>
+                        Обработка документов с OCR
+                    </h1>
+                    <p class="lead text-muted">
+                        Загрузите изображение или PDF документ для извлечения текста и данных
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Основная форма -->
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="card shadow">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-upload"></i> Загрузка документа
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Зона загрузки -->
+                        <div class="drop-zone" id="dropZone">
+                            <i class="bi bi-cloud-upload-fill fs-1 text-muted mb-3"></i>
+                            <h5>Перетащите файл сюда или нажмите для выбора</h5>
+                            <p class="text-muted mb-0">
+                                Поддерживаются: PNG, JPG, PDF, TIFF (макс. 50MB)
+                            </p>
+                            <input type="file" id="fileInput" class="d-none"
+                                   accept=".png,.jpg,.jpeg,.pdf,.bmp,.tiff">
+                        </div>
+
+                        <!-- Настройки обработки -->
+                        <div class="row mt-4" id="settingsPanel" style="display: none;">
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    <i class="bi bi-gear"></i> OCR Движок
+                                </label>
+                                <select class="form-select" id="engineSelect">
+                                    <option value="">Загрузка...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    <i class="bi bi-translate"></i> Язык
+                                </label>
+                                <select class="form-select" id="languageSelect">
+                                    <option value="ru">Русский</option>
+                                    <option value="en">English</option>
+                                    <option value="rus+eng">Русский + English</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mt-3">
+                                <label class="form-label">
+                                    <i class="bi bi-sliders"></i> Порог уверенности
+                                </label>
+                                <input type="range" class="form-range" id="confidenceSlider"
+                                       min="0" max="1" step="0.1" value="0.5">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">0.0</small>
+                                    <small id="confidenceValue" class="text-primary">0.5</small>
+                                    <small class="text-muted">1.0</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mt-3">
+                                <label class="form-label">Дополнительные опции</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="useLlmCheck">
+                                    <label class="form-check-label" for="useLlmCheck">
+                                        <i class="bi bi-robot"></i> Использовать LLM постобработку
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="compareEngines">
+                                    <label class="form-check-label" for="compareEngines">
+                                        <i class="bi bi-bar-chart"></i> Сравнить несколько движков
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Режим сравнения -->
+                        <div class="comparison-mode" id="comparisonMode" style="display: none;">
+                            <h6><i class="bi bi-bar-chart"></i> Режим сравнения движков</h6>
+                            <p class="mb-2">Будут протестированы все доступные OCR движки и выведена сравнительная таблица</p>
+                            <div id="enginesList"></div>
+                        </div>
+
+                        <!-- Кнопки управления -->
+                        <div class="d-grid gap-2 mt-4" id="actionButtons" style="display: none;">
+                            <button class="btn btn-primary btn-lg" id="processBtn" onclick="processDocument()">
+                                <i class="bi bi-play-fill"></i> Запустить OCR
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="resetForm()">
+                                <i class="bi bi-arrow-clockwise"></i> Сбросить
+                            </button>
+                        </div>
+
+                        <!-- Прогресс обработки -->
+                        <div class="progress-section" id="progressSection">
+                            <div class="progress mb-3">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                     style="width: 0%" id="progressBar"></div>
+                            </div>
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                                <p class="mt-2" id="progressText">Обработка документа...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Результаты -->
+        <div class="result-section" id="resultsSection">
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                Результаты обработки
+                            </h5>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm" onclick="downloadResults()">
+                                    <i class="bi bi-download"></i> Скачать JSON
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Навигация результатов -->
+                            <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                                <li class="nav-item">
+                                    <a class="nav-link active" data-bs-toggle="tab" href="#textTab">
+                                        <i class="bi bi-file-text"></i> Текст
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#fieldsTab">
+                                        <i class="bi bi-list-check"></i> Извлеченные поля
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#metricsTab">
+                                        <i class="bi bi-graph-up"></i> Метрики
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#rawTab">
+                                        <i class="bi bi-code-square"></i> Сырые данные
+                                    </a>
+                                </li>
+                            </ul>
+
+                            <!-- Содержимое вкладок -->
+                            <div class="tab-content mt-3" id="resultContent">
+                                <!-- Вкладка текста -->
+                                <div class="tab-pane fade show active" id="textTab">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6>Распознанный текст:</h6>
+                                            <div class="border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+                                                <pre id="extractedText" class="mb-0"></pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Вкладка полей -->
+                                <div class="tab-pane fade" id="fieldsTab">
+                                    <div id="extractedFields"></div>
+                                </div>
+
+                                <!-- Вкладка метрик -->
+                                <div class="tab-pane fade" id="metricsTab">
+                                    <div id="metricsContent"></div>
+                                </div>
+
+                                <!-- Вкладка сырых данных -->
+                                <div class="tab-pane fade" id="rawTab">
+                                    <div class="json-viewer">
+                                        <pre id="rawData"></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal для API документации -->
+    <div class="modal fade" id="apiModal">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">API Документация</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="api-docs">
+                        <h6>Основные эндпоинты:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Метод</th>
+                                        <th>URL</th>
+                                        <th>Описание</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-success">POST</span></td>
+                                        <td><code>/api/ocr/process</code></td>
+                                        <td>Обработка документа</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-success">POST</span></td>
+                                        <td><code>/api/ocr/compare</code></td>
+                                        <td>Сравнение движков</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-primary">GET</span></td>
+                                        <td><code>/api/ocr/engines</code></td>
+                                        <td>Список движков</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-primary">GET</span></td>
+                                        <td><code>/health</code></td>
+                                        <td>Статус сервиса</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

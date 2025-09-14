@@ -1,0 +1,16 @@
+pillow
+numpy
+matplotlib
+streamlit
+requests
+flask
+pytesseract
+opencv-python-headless
+python-Levenshtein
+jiwer
+jsonschema
+paddleocr
+transformers
+torch
+torchvision
+openai
